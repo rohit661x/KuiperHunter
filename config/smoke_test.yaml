@@ -1,0 +1,15 @@
+image_size: [64, 64]
+sequence_length: 8
+num_objects_per_sequence: 1
+magnitude_range: [10.0, 10.0]
+flux_zeropoint: 1000.0
+velocity_range: [1.0, 1.0]
+angle_range: [0, 0]
+psf_sigma_range: [1.0, 1.0]
+noise_level:
+  read_noise: 0.0
+  poisson_noise: false
+artifacts: {}
+num_train_sequences: 10
+num_val_sequences: 2
+output_dir: "data/smoke_test"

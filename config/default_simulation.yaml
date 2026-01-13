@@ -1,0 +1,31 @@
+# Default Simulation Configuration for KuiperHunter
+
+# Image Parameters
+image_size: [128, 128]  # (H, W)
+sequence_length: 15     # Number of frames per sequence T
+
+# Injection Parameters
+num_objects_per_sequence: 1 # Number of movers to inject
+magnitude_range: [18.0, 22.0] # Arbitrary magnitude scale for now
+flux_zeropoint: 1000.0 # Flux count for magnitude 0 (Reference)
+
+# Motion Parameters
+velocity_range: [0.1, 1.5] # Pixels per frame
+angle_range: [0, 360]    # Degrees
+
+# PSF Parameters
+psf_sigma_range: [1.0, 2.5] # Gaussian sigma in pixels
+
+# Noise & Artifacts Parameters
+noise_level:
+  read_noise: 5.0 # Gaussian sigma
+  poisson_noise: true
+artifacts:
+  hot_pixels_prob: 0.01
+  cosmic_ray_prob: 0.05
+  streak_prob: 0.01
+
+# Dataset Generation
+num_train_sequences: 1000
+num_val_sequences: 200
+output_dir: "data/synthetic_v1"
