@@ -156,3 +156,36 @@ class TestMotionModel:
         samples = [_sample_mu(44.0, cfg, rng) for _ in range(10_000)]
         nominal = mu_of_R(44.0)
         assert abs(np.mean(samples) - nominal) < 0.05
+
+
+class TestDirectionAndSNR:
+    def test_phi_offset_is_normal(self):
+        """phi_offset ~ Normal(0, sigma); check mean ≈ 0 and std ≈ sigma."""
+        from src.injector.kbo_prior import _sample_phi_offset, KBOConfig
+        cfg = KBOConfig(phi_ecl_sigma_deg=10.0)
+        rng = np.random.default_rng(0)
+        samples = [_sample_phi_offset(cfg, rng) for _ in range(20_000)]
+        assert abs(np.mean(samples)) < 0.5
+        assert abs(np.std(samples) - 10.0) < 0.3
+
+    def test_phi_img_rad_canonical(self):
+        """phi_img_rad = pi + radians(phi_offset)."""
+        from src.injector.kbo_prior import _phi_img_rad
+        assert _phi_img_rad(0.0) == pytest.approx(math.pi)
+        assert _phi_img_rad(90.0) == pytest.approx(math.pi + math.pi / 2)
+
+    def test_snr_always_in_range(self):
+        from src.injector.kbo_prior import _sample_snr
+        rng = np.random.default_rng(0)
+        for _ in range(5000):
+            snr = _sample_snr(rng)
+            assert 3.0 <= snr <= 10.0, f"snr={snr} out of [3, 10]"
+
+    def test_snr_faint_heavy(self):
+        """~75% of SNR draws should fall in [3, 6]."""
+        from src.injector.kbo_prior import _sample_snr
+        rng = np.random.default_rng(42)
+        N = 20_000
+        faint = sum(1 for _ in range(N) if _sample_snr(rng) <= 6.0)
+        frac = faint / N
+        assert 0.70 < frac < 0.80, f"faint fraction={frac:.3f}, expected ~0.75"

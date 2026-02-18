@@ -142,3 +142,36 @@ def _sample_mu(
     if config.mode == "kbo":
         mu = min(mu, _MU_CAP_KBO)
     return float(mu)
+
+
+# ---------------------------------------------------------------------------
+# Direction
+# ---------------------------------------------------------------------------
+
+def _sample_phi_offset(config: KBOConfig, rng: np.random.Generator) -> float:
+    """Sample angular offset from ecliptic direction (degrees)."""
+    return float(rng.normal(0.0, config.phi_ecl_sigma_deg))
+
+
+def _phi_img_rad(phi_offset_deg: float) -> float:
+    """
+    Image-plane direction (radians).
+    π = retrograde/westward at opposition (Step 2 canonical, no WCS).
+    Step 3+: replace π with wcs-derived phi_ecl_img.
+    """
+    return math.pi + math.radians(phi_offset_deg)
+
+
+# ---------------------------------------------------------------------------
+# SNR
+# ---------------------------------------------------------------------------
+
+def _sample_snr(rng: np.random.Generator) -> float:
+    """
+    Sample SNR from a faint-heavy bimodal mixture.
+    75% in [3, 6]  — faint KBO regime
+    25% in [6, 10] — moderate brightness
+    """
+    if rng.random() < 0.75:
+        return float(rng.uniform(3.0, 6.0))
+    return float(rng.uniform(6.0, 10.0))
