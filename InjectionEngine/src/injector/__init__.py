@@ -5,6 +5,7 @@ from .render_psf import PSFParams
 from .targets import TargetConfig
 from .priors import PriorSample, sample as draw_prior
 from .trajectory import Trajectory, build_trajectory
+from .kbo_prior import KBOSample, KBOConfig, sample_kbo
 
 __all__ = [
     "inject",
@@ -14,4 +15,7 @@ __all__ = [
     "draw_prior",
     "Trajectory",
     "build_trajectory",
+    "KBOSample",
+    "KBOConfig",
+    "sample_kbo",
 ]
