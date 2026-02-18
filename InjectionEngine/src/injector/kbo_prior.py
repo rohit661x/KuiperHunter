@@ -175,3 +175,58 @@ def _sample_snr(rng: np.random.Generator) -> float:
     if rng.random() < 0.75:
         return float(rng.uniform(3.0, 6.0))
     return float(rng.uniform(6.0, 10.0))
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def sample_kbo(
+    rng: np.random.Generator,
+    config: KBOConfig | None = None,
+) -> KBOSample:
+    """
+    Draw one KBO-mode injection sample.
+
+    Returns a KBOSample with:
+    - physics truth: population_class, R_au, mu_arcsec_hr, phi_offset_deg, snr
+    - injector-compatible arcsec/hr components: motion_ra, motion_dec
+    - sanity-only px/frame velocities: vx_px_per_frame, vy_px_per_frame
+    - dimensionless flux placeholder: flux_peak = snr
+    """
+    if config is None:
+        config = KBOConfig()
+
+    pop = _sample_population_class(rng)
+    R = _sample_R(pop, rng)
+    mu = _sample_mu(R, config, rng)
+    phi_off = _sample_phi_offset(config, rng)
+    phi = _phi_img_rad(phi_off)
+    snr = _sample_snr(rng)
+
+    # Injector-compatible velocity components (arcsec/hr)
+    # trajectory.py converts arcsec/hr → px via plate_scale and dt
+    motion_ra = mu * math.cos(phi)
+    motion_dec = mu * math.sin(phi)
+
+    # Sanity-only pixel velocities — mirror trajectory.py formula exactly
+    # so clipping-rate checks are consistent with production behaviour
+    dt = config.dt_hours
+    vx = (motion_ra / config.plate_scale) * dt
+    vy = (motion_dec / config.plate_scale) * dt
+
+    return KBOSample(
+        population_class=pop,
+        R_au=R,
+        mu_arcsec_hr=mu,
+        phi_offset_deg=phi_off,
+        snr=snr,
+        dropout_mask=None,
+        phi_img_rad=phi,
+        motion_ra=motion_ra,
+        motion_dec=motion_dec,
+        vx_px_per_frame=vx,
+        vy_px_per_frame=vy,
+        flux_peak=snr,          # dimensionless — Step 3 will map to real ADU
+        mode=config.mode,
+    )
