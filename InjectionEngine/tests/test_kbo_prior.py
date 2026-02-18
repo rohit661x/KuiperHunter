@@ -189,3 +189,100 @@ class TestDirectionAndSNR:
         faint = sum(1 for _ in range(N) if _sample_snr(rng) <= 6.0)
         frac = faint / N
         assert 0.70 < frac < 0.80, f"faint fraction={frac:.3f}, expected ~0.75"
+
+
+class TestSampleKBO:
+    def _draw(self, seed=0):
+        from src.injector.kbo_prior import sample_kbo, KBOConfig
+        rng = np.random.default_rng(seed)
+        return sample_kbo(rng, KBOConfig())
+
+    def test_returns_kbo_sample(self):
+        from src.injector.kbo_prior import KBOSample
+        s = self._draw()
+        assert isinstance(s, KBOSample)
+
+    def test_motion_ra_dec_components(self):
+        """motion_ra/dec must equal mu * cos/sin(phi_img_rad)."""
+        s = self._draw()
+        assert s.motion_ra == pytest.approx(
+            s.mu_arcsec_hr * math.cos(s.phi_img_rad), abs=1e-9
+        )
+        assert s.motion_dec == pytest.approx(
+            s.mu_arcsec_hr * math.sin(s.phi_img_rad), abs=1e-9
+        )
+
+    def test_vx_vy_mirror_trajectory_formula(self):
+        """vx/vy_px_per_frame must use the same formula as trajectory.py."""
+        from src.injector.kbo_prior import KBOConfig
+        cfg = KBOConfig()
+        s = self._draw()
+        expected_vx = (s.motion_ra / cfg.plate_scale) * cfg.dt_hours
+        expected_vy = (s.motion_dec / cfg.plate_scale) * cfg.dt_hours
+        assert s.vx_px_per_frame == pytest.approx(expected_vx, abs=1e-9)
+        assert s.vy_px_per_frame == pytest.approx(expected_vy, abs=1e-9)
+
+    def test_flux_peak_equals_snr(self):
+        """flux_peak is dimensionless SNR placeholder in Step 2."""
+        s = self._draw()
+        assert s.flux_peak == pytest.approx(s.snr)
+
+    def test_dropout_mask_is_none(self):
+        s = self._draw()
+        assert s.dropout_mask is None
+
+    def test_mode_is_kbo(self):
+        s = self._draw()
+        assert s.mode == "kbo"
+
+    def test_seed_reproducibility(self):
+        from src.injector.kbo_prior import sample_kbo, KBOConfig
+        cfg = KBOConfig()
+        s1 = sample_kbo(np.random.default_rng(99), cfg)
+        s2 = sample_kbo(np.random.default_rng(99), cfg)
+        assert s1.R_au == s2.R_au
+        assert s1.mu_arcsec_hr == s2.mu_arcsec_hr
+        assert s1.snr == s2.snr
+
+    def test_mu_capped_at_4_5(self):
+        from src.injector.kbo_prior import sample_kbo, KBOConfig
+        cfg = KBOConfig()
+        rng = np.random.default_rng(0)
+        for _ in range(2000):
+            s = sample_kbo(rng, cfg)
+            assert s.mu_arcsec_hr <= 4.5 + 1e-9
+
+
+class TestPriorAdapter:
+    def test_tno_returns_prior_sample(self):
+        from src.injector.priors import sample, PriorSample
+        rng = np.random.default_rng(0)
+        s = sample("tno", rng)
+        assert isinstance(s, PriorSample)
+
+    def test_tno_motion_ra_is_arcsec_hr(self):
+        """motion_ra from adapter must be in arcsec/hr (trajectory.py contract)."""
+        from src.injector.priors import sample
+        rng = np.random.default_rng(0)
+        for _ in range(200):
+            s = sample("tno", rng)
+            assert abs(s.motion_ra) <= 4.5 + 1e-6, (
+                f"motion_ra={s.motion_ra:.3f} exceeds KBO cap — likely px/frame confusion"
+            )
+
+    def test_tno_flux_peak_equals_snr_range(self):
+        """flux_peak = snr (dimensionless, 3–10)."""
+        from src.injector.priors import sample
+        rng = np.random.default_rng(0)
+        for _ in range(200):
+            s = sample("tno", rng)
+            assert 3.0 <= s.flux_peak <= 10.0
+
+    def test_other_priors_unchanged(self):
+        """mba/nea/static must still work after modifying tno."""
+        from src.injector.priors import sample
+        rng = np.random.default_rng(0)
+        for name in ("mba", "nea", "static"):
+            s = sample(name, rng)
+            assert s.flux_peak > 0
+            assert s.motion_ra is not None

@@ -48,12 +48,20 @@ def sample(sample_type: str, rng: np.random.Generator) -> PriorSample:
 # ---------------------------------------------------------------------------
 @register("tno")
 def _tno(rng: np.random.Generator) -> PriorSample:
-    """Trans-Neptunian Object: slow, faint."""
+    """
+    Trans-Neptunian Object / KBO — delegates to the physics-based KBO prior.
+
+    Unit note: motion_ra/motion_dec are in arcsec/hr.
+    trajectory.py divides by plate_scale to convert to pixels.
+    flux_peak is dimensionless SNR (placeholder until Step 3 noise model).
+    """
+    from .kbo_prior import sample_kbo, KBOConfig
+    s = sample_kbo(rng, KBOConfig())
     return PriorSample(
-        flux_peak=rng.uniform(50, 500),
-        motion_ra=rng.uniform(-0.5, 0.5),
-        motion_dec=rng.uniform(-0.3, 0.3),
-        start_x=rng.uniform(0, 1),
+        flux_peak=s.flux_peak,    # SNR as dimensionless strength (Step 2)
+        motion_ra=s.motion_ra,    # arcsec/hr — trajectory.py converts to px
+        motion_dec=s.motion_dec,  # arcsec/hr — trajectory.py converts to px
+        start_x=rng.uniform(0, 1),  # overwritten by draw_target() in inject()
         start_y=rng.uniform(0, 1),
     )
 
