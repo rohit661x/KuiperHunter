@@ -177,6 +177,13 @@ def report_priors(
     dict with arrays: R_au, mu, phi_offset, snr, drift_px, clipping_rate,
     class_counts, checks.
     """
+    _SUPPORTED_REPORT_TYPES = {"tno"}
+    if sample_type not in _SUPPORTED_REPORT_TYPES:
+        raise ValueError(
+            f"report_priors() only supports sample_type='tno' (got {sample_type!r}). "
+            f"Types mba, nea, static lack KBO physics fields (R_au, mu, phi_offset)."
+        )
+
     import os
     from .kbo_prior import sample_kbo, KBOConfig
 

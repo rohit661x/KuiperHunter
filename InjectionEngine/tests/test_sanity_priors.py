@@ -50,3 +50,8 @@ class TestReportPriors:
             out_dir=str(tmp_path), seed=0, plot=False,
         )
         assert (tmp_path / "clipping_rate.txt").exists()
+
+    def test_unsupported_sample_type_raises(self):
+        from src.injector.sanity import report_priors
+        with pytest.raises(ValueError, match="report_priors\\(\\) only supports"):
+            report_priors(sample_type="mba", mode="kbo", N=10, seed=0, plot=False)
