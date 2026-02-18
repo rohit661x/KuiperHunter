@@ -5,5 +5,12 @@ __pycache__/
 .env
 data/
 *.gif
+*.npz
 .pytest_cache/
 .ipynb_checkpoints/
+
+# Generated demo artifacts
+InjectionEngine/demo/cases/
+
+# External repos (add as submodules explicitly when ready)
+kbmod/
