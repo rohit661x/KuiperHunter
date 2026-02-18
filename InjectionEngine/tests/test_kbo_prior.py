@@ -1,4 +1,5 @@
 """Tests for kbo_prior dataclasses and configuration."""
+import math
 import pytest
 import numpy as np
 from src.injector.kbo_prior import KBOConfig, KBOSample
@@ -68,3 +69,53 @@ class TestPopulationClass:
             assert abs(actual - target_frac) < 0.02, (
                 f"{cls}: expected ~{target_frac:.2f}, got {actual:.3f}"
             )
+
+
+class TestDistanceSampling:
+    def test_classical_cold_range(self):
+        from src.injector.kbo_prior import _sample_R
+        rng = np.random.default_rng(0)
+        for _ in range(1000):
+            R = _sample_R("classical_cold", rng)
+            assert 40.0 <= R <= 50.0, f"classical_cold R={R} out of [40,50]"
+
+    def test_classical_hot_range(self):
+        from src.injector.kbo_prior import _sample_R
+        rng = np.random.default_rng(1)
+        for _ in range(1000):
+            R = _sample_R("classical_hot", rng)
+            assert 40.0 <= R <= 50.0
+
+    def test_plutino_range(self):
+        from src.injector.kbo_prior import _sample_R
+        rng = np.random.default_rng(2)
+        for _ in range(1000):
+            R = _sample_R("plutino", rng)
+            assert 37.0 <= R <= 42.0
+
+    def test_scattering_range(self):
+        from src.injector.kbo_prior import _sample_R
+        rng = np.random.default_rng(3)
+        for _ in range(1000):
+            R = _sample_R("scattering", rng)
+            assert 30.0 <= R <= 100.0
+
+    def test_classical_cold_mean_near_44(self):
+        from src.injector.kbo_prior import _sample_R
+        rng = np.random.default_rng(99)
+        Rs = [_sample_R("classical_cold", rng) for _ in range(10_000)]
+        mean = np.mean(Rs)
+        assert 43.0 < mean < 45.0, f"classical_cold mean R={mean:.2f}, expected near 44"
+
+    def test_plutino_mean_near_394(self):
+        from src.injector.kbo_prior import _sample_R
+        rng = np.random.default_rng(99)
+        Rs = [_sample_R("plutino", rng) for _ in range(10_000)]
+        mean = np.mean(Rs)
+        assert 39.0 < mean < 40.0, f"plutino mean R={mean:.2f}, expected near 39.4"
+
+    def test_unknown_class_raises(self):
+        from src.injector.kbo_prior import _sample_R
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="Unknown population_class"):
+            _sample_R("centaur", rng)

@@ -90,3 +90,23 @@ _WEIGHTS = np.array(list(KBO_MIXTURE.values()), dtype=np.float64)
 def _sample_population_class(rng: np.random.Generator) -> str:
     idx = rng.choice(len(_CLASSES), p=_WEIGHTS)
     return _CLASSES[idx]
+
+
+# ---------------------------------------------------------------------------
+# Distance sampling
+# ---------------------------------------------------------------------------
+
+def _sample_R(population_class: str, rng: np.random.Generator) -> float:
+    """Sample heliocentric distance R (AU) conditional on population class."""
+    if population_class in ("classical_cold", "classical_hot"):
+        R = rng.normal(44.0, 2.0)
+        return float(np.clip(R, 40.0, 50.0))
+    elif population_class == "plutino":
+        R = rng.normal(39.4, 1.0)
+        return float(np.clip(R, 37.0, 42.0))
+    elif population_class == "scattering":
+        # log-uniform [30, 100]
+        log_R = rng.uniform(math.log(30.0), math.log(100.0))
+        return float(math.exp(log_R))
+    else:
+        raise ValueError(f"Unknown population_class: '{population_class}'")
