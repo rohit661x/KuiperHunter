@@ -110,3 +110,35 @@ def _sample_R(population_class: str, rng: np.random.Generator) -> float:
         return float(math.exp(log_R))
     else:
         raise ValueError(f"Unknown population_class: '{population_class}'")
+
+
+# ---------------------------------------------------------------------------
+# Motion model
+# ---------------------------------------------------------------------------
+
+# Calibration constant: mu = MU_K / R_au  (arcsec·AU/hr)
+# Derived from opposition parallax approximation.
+# Gives mu(44 AU) ≈ 2.92 arcsec/hr, mu(39.4) ≈ 3.26, mu(30) ≈ 4.28.
+# This is a first-order approximation; will be refined with orbital elements.
+MU_K: float = 128.5  # arcsec·AU/hr
+
+_MU_CAP_KBO: float = 4.5  # arcsec/hr hard cap for KBO mode
+
+
+def mu_of_R(R_au: float) -> float:
+    """Nominal opposition motion rate (arcsec/hr) at heliocentric distance R (AU)."""
+    return MU_K / R_au
+
+
+def _sample_mu(
+    R_au: float,
+    config: KBOConfig,
+    rng: np.random.Generator,
+) -> float:
+    """Sample motion rate with scatter; apply KBO mode cap."""
+    nominal = mu_of_R(R_au)
+    mu = nominal * rng.normal(1.0, config.motion_scatter)
+    mu = max(mu, 0.01)
+    if config.mode == "kbo":
+        mu = min(mu, _MU_CAP_KBO)
+    return float(mu)

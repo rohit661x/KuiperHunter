@@ -119,3 +119,40 @@ class TestDistanceSampling:
         rng = np.random.default_rng(0)
         with pytest.raises(ValueError, match="Unknown population_class"):
             _sample_R("centaur", rng)
+
+
+class TestMotionModel:
+    def test_mu_at_44au(self):
+        """mu(44 AU) should be near 2.92 arcsec/hr (opposition approximation)."""
+        from src.injector.kbo_prior import mu_of_R
+        mu = mu_of_R(44.0)
+        assert 2.8 < mu < 3.1, f"mu(44)={mu:.3f}, expected ~2.92"
+
+    def test_mu_decreases_with_distance(self):
+        from src.injector.kbo_prior import mu_of_R
+        assert mu_of_R(30.0) > mu_of_R(44.0) > mu_of_R(80.0)
+
+    def test_mu_sample_cap_kbo(self):
+        from src.injector.kbo_prior import _sample_mu, KBOConfig
+        cfg = KBOConfig(mode="kbo")
+        rng = np.random.default_rng(0)
+        for _ in range(5000):
+            mu = _sample_mu(30.0, cfg, rng)  # R=30 → high mu; cap must hold
+            assert mu <= 4.5 + 1e-9, f"mu={mu:.4f} exceeds 4.5 cap"
+
+    def test_mu_positive(self):
+        from src.injector.kbo_prior import _sample_mu, KBOConfig
+        cfg = KBOConfig()
+        rng = np.random.default_rng(0)
+        for _ in range(1000):
+            mu = _sample_mu(44.0, cfg, rng)
+            assert mu > 0
+
+    def test_mu_scatter_mean_near_nominal(self):
+        """With scatter=0.08, sample mean should converge to mu_of_R(44)."""
+        from src.injector.kbo_prior import _sample_mu, mu_of_R, KBOConfig
+        cfg = KBOConfig(motion_scatter=0.08)
+        rng = np.random.default_rng(7)
+        samples = [_sample_mu(44.0, cfg, rng) for _ in range(10_000)]
+        nominal = mu_of_R(44.0)
+        assert abs(np.mean(samples) - nominal) < 0.05
