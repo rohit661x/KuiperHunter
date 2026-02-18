@@ -363,3 +363,64 @@ def _save_plots(
     plt.close(fig)
 
     print(f"  Plots saved to {out_dir}/")
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    import argparse
+    import os
+    import sys
+
+    parser = argparse.ArgumentParser(
+        description="InjectionEngine sanity reporter — priors and injection checks."
+    )
+    parser.add_argument("--priors",         default=None,
+                        help="Run prior report for this sample type (e.g. tno)")
+    parser.add_argument("--mode",           default="kbo",
+                        choices=["kbo", "broad"])
+    parser.add_argument("--N",              type=int,   default=100_000)
+    parser.add_argument("--T",              type=int,   default=5)
+    parser.add_argument("--baseline_hours", type=float, default=4.0)
+    parser.add_argument("--plate_scale",    type=float, default=0.187)
+    parser.add_argument("--patch",          type=int,   default=128)
+    parser.add_argument("--seed",           type=int,   default=None)
+    parser.add_argument("--no-plot",        action="store_true",
+                        help="Skip saving matplotlib figures")
+    parser.add_argument("--out-dir",        default=None,
+                        help="Output directory (default: demo/priors_report/)")
+
+    args = parser.parse_args()
+
+    if args.priors is not None:
+        out_dir = args.out_dir
+        if out_dir is None:
+            here = os.path.dirname(os.path.abspath(__file__))
+            root = os.path.join(here, "..", "..", "demo", "priors_report")
+            out_dir = os.path.normpath(root)
+
+        results = report_priors(
+            sample_type=args.priors,
+            mode=args.mode,
+            N=args.N,
+            T=args.T,
+            baseline_hours=args.baseline_hours,
+            plate_scale=args.plate_scale,
+            patch=args.patch,
+            out_dir=out_dir,
+            seed=args.seed,
+            plot=not args.no_plot,
+        )
+
+        failed = [k for k, v in results.get("checks", {}).items() if not v]
+        if failed:
+            print(f"\n[ERROR] {len(failed)} check(s) failed: {failed}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
