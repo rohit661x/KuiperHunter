@@ -212,8 +212,7 @@ def report_priors(
     snr_arr = np.array(snr_arr)
     drift_arr = np.array(drift_arr)
 
-    half = patch / 2.0
-    clipping_rate = float((drift_arr > half).mean())
+    clipping_rate = float((drift_arr > patch).mean())
 
     # --- Pass/fail checks (KBO mode) ---
     checks: dict[str, bool] = {}
@@ -222,7 +221,7 @@ def report_priors(
         checks["mu_mean_2.5_to_3.5"] = 2.5 <= float(mu_arr.mean()) <= 3.5
         checks["phi_p95_le_35deg"]   = float(np.percentile(np.abs(phi_arr), 95)) <= 35.0
         checks["R_mean_40_to_46"]    = 40.0 <= float(R_arr.mean()) <= 46.0
-        checks["clipping_le_60pct"]  = clipping_rate <= 0.60
+        checks["clipping_le_5pct"]   = clipping_rate <= 0.05
 
     # --- Console output ---
     print(f"\n=== Prior report: sample_type={sample_type}  mode={mode}  N={N:,} ===\n")
@@ -352,8 +351,8 @@ def _save_plots(
     # hist_drift_px.png
     fig, ax = plt.subplots(**fig_kw)
     ax.hist(drift_arr, bins=60, color="salmon", edgecolor="none", alpha=0.8)
-    ax.axvline(patch / 2, color="crimson", lw=1.5, ls="--",
-               label=f"patch/2={patch//2}px")
+    ax.axvline(patch, color="crimson", lw=1.5, ls="--",
+               label=f"patch={patch}px")
     ax.axvline(drift_arr.mean(), color="navy", lw=1.5,
                label=f"mean={drift_arr.mean():.1f}px")
     ax.set_xlabel("Total drift (px)")
