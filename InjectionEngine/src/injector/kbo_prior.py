@@ -14,8 +14,7 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -31,6 +30,10 @@ class KBOConfig:
     plate_scale: float = 0.187         # arcsec/px
     baseline_hours: float = 4.0
     T: int = 5
+
+    def __post_init__(self):
+        if self.T < 2:
+            raise ValueError(f"KBOConfig.T must be >= 2 (got {self.T}); need at least 2 frames for a time baseline.")
 
     @property
     def dt_hours(self) -> float:

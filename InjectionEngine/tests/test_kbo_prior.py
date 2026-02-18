@@ -23,6 +23,11 @@ class TestKBOConfig:
         assert c.mode == "broad"
         assert c.T == 3
 
+    def test_T_less_than_2_raises(self):
+        import pytest
+        with pytest.raises(ValueError, match="T must be >= 2"):
+            KBOConfig(T=1)
+
 
 class TestKBOSampleFields:
     def test_has_all_fields(self):
