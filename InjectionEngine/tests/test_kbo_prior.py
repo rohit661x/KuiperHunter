@@ -1,5 +1,6 @@
 """Tests for kbo_prior dataclasses and configuration."""
 import pytest
+import numpy as np
 from src.injector.kbo_prior import KBOConfig, KBOSample
 
 
@@ -42,3 +43,28 @@ class TestKBOSampleFields:
             "flux_peak", "mode",
         }
         assert required <= fields
+
+
+class TestPopulationClass:
+    VALID = {"classical_cold", "classical_hot", "plutino", "scattering"}
+
+    def test_returns_valid_class(self):
+        from src.injector.kbo_prior import _sample_population_class
+        rng = np.random.default_rng(0)
+        for _ in range(100):
+            cls = _sample_population_class(rng)
+            assert cls in self.VALID
+
+    def test_mixture_proportions(self):
+        """Over 50 000 draws the mixture should be within 2 pp of target."""
+        from src.injector.kbo_prior import _sample_population_class, KBO_MIXTURE
+        rng = np.random.default_rng(42)
+        N = 50_000
+        counts = {k: 0 for k in KBO_MIXTURE}
+        for _ in range(N):
+            counts[_sample_population_class(rng)] += 1
+        for cls, target_frac in KBO_MIXTURE.items():
+            actual = counts[cls] / N
+            assert abs(actual - target_frac) < 0.02, (
+                f"{cls}: expected ~{target_frac:.2f}, got {actual:.3f}"
+            )

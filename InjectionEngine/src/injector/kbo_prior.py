@@ -70,3 +70,23 @@ class KBOSample:
     # --- Adapter ---
     flux_peak: float             # = snr  (dimensionless placeholder, Step 2)
     mode: str
+
+
+# ---------------------------------------------------------------------------
+# KBO class mixture weights
+# ---------------------------------------------------------------------------
+
+KBO_MIXTURE: dict[str, float] = {
+    "classical_cold": 0.45,
+    "classical_hot":  0.25,
+    "plutino":        0.20,
+    "scattering":     0.10,
+}
+
+_CLASSES = list(KBO_MIXTURE.keys())
+_WEIGHTS = np.array(list(KBO_MIXTURE.values()), dtype=np.float64)
+
+
+def _sample_population_class(rng: np.random.Generator) -> str:
+    idx = rng.choice(len(_CLASSES), p=_WEIGHTS)
+    return _CLASSES[idx]
