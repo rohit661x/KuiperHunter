@@ -11,6 +11,7 @@ data/
 
 # Generated demo artifacts
 InjectionEngine/demo/cases/
+InjectionEngine/demo/priors_report/
 
 # External repos (add as submodules explicitly when ready)
 kbmod/
