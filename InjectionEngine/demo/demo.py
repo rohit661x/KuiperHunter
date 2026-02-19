@@ -184,10 +184,35 @@ def demo_plot(patch, X, Y, meta):
 # Entry point
 # ---------------------------------------------------------------------------
 
+def demo_from_case(case_path: str) -> None:
+    """Replay a saved injection case (.npz) and print a summary."""
+    data = np.load(case_path, allow_pickle=True)
+    patch_stack = data["patch_stack"]
+    X = data["X"]
+    Y = data["Y"]
+    meta = data["meta"].item()
+
+    print(f"\n=== Case: {os.path.basename(case_path)} ===")
+    print(f"  patch shape  : {patch_stack.shape}")
+    print(f"  Y peak       : {Y.max():.3f}")
+    print(f"  Y total      : {Y.sum():.3f}")
+    print(f"  flux_peak    : {meta['flux_peak']:.3f}")
+    print(f"  sigma_calib  : {meta.get('sigma_calibrated', False)}")
+    print(f"  motion_ra    : {meta['motion_ra_arcsec_per_hour']:.4f} arcsec/hr")
+    print(f"  motion_dec   : {meta['motion_dec_arcsec_per_hour']:.4f} arcsec/hr")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description="InjectionEngine demo")
     parser.add_argument("--plot", action="store_true", help="Show matplotlib figures")
+    parser.add_argument("--case", default=None,
+                        help="Path to a saved .npz case (e.g. demo/cases/case_0000.npz)")
     args = parser.parse_args()
+
+    if args.case:
+        demo_from_case(args.case)
+        return
 
     patch, times, X, Y, meta = demo_basic()
     demo_all_types()
