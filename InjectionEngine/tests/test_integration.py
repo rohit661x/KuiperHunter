@@ -27,15 +27,6 @@ from src.injector.targets import TargetConfig
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_fake_fits_stack(tmp_path: Path, n_frames: int = 5) -> Path:
-    """Create n_frames fake FITS files in tmp_path/fits/ and return the dir."""
-    fits_dir = tmp_path / "fits"
-    fits_dir.mkdir()
-    for i in range(n_frames):
-        write_fake_fits(fits_dir / f"frame_{i:04d}.fits", mjd=60000.0 + i * 0.04)
-    return fits_dir
-
-
 def _open_and_verify_zarr(zarr_path: Path, expected_T: int) -> zarr.Group:
     """Open a zarr store and assert the required schema is present."""
     assert zarr_path.exists(), f"zarr not found: {zarr_path}"
@@ -58,33 +49,35 @@ def _open_and_verify_zarr(zarr_path: Path, expected_T: int) -> zarr.Group:
 # ---------------------------------------------------------------------------
 
 class TestSyntheticPipeline:
-    def test_fits_to_zarr_schema(self, tmp_path):
-        """FITS → build_one_stack → zarr with correct schema."""
-        fits_dir = _make_fake_fits_stack(tmp_path)
-        zarr_path = tmp_path / "stack.zarr"
-        build_one_stack(fits_dir, zarr_path, T=5, patch_size=32, stride=16,
-                        plate_scale=0.263)
-        _open_and_verify_zarr(zarr_path, expected_T=5)
+    """Synthetic pipeline tests — zarr store built once at class scope."""
 
-    def test_zarr_images_shape(self, tmp_path):
-        """zarr images must be (T, H, W) float32."""
-        fits_dir = _make_fake_fits_stack(tmp_path)
-        zarr_path = tmp_path / "stack.zarr"
+    @pytest.fixture(scope="class")
+    def zarr_store(self, tmp_path_factory):
+        """Build a zarr store once from fake FITS files, shared across all tests in class."""
+        base = tmp_path_factory.mktemp("synthetic")
+        fits_dir = base / "fits"
+        fits_dir.mkdir()
+        for i in range(5):
+            write_fake_fits(fits_dir / f"frame_{i:04d}.fits", mjd=60000.0 + i * 0.04)
+        zarr_path = base / "stack.zarr"
         build_one_stack(fits_dir, zarr_path, T=5, patch_size=32, stride=16,
                         plate_scale=0.263)
-        z = zarr.open(str(zarr_path), mode="r")
+        return zarr_path
+
+    def test_fits_to_zarr_schema(self, zarr_store):
+        """FITS → build_one_stack → zarr with correct schema."""
+        _open_and_verify_zarr(zarr_store, expected_T=5)
+
+    def test_zarr_images_shape(self, zarr_store):
+        """zarr images must be (T, H, W) float32."""
+        z = zarr.open(str(zarr_store), mode="r")
         imgs = z["images"][:]
         assert imgs.ndim == 3
         assert imgs.dtype == np.float32
 
-    def test_zarr_to_inject_to_npz(self, tmp_path):
+    def test_zarr_to_inject_to_npz(self, zarr_store, tmp_path):
         """zarr → extract patch → inject → save .npz → load → verify keys and shapes."""
-        fits_dir = _make_fake_fits_stack(tmp_path)
-        zarr_path = tmp_path / "stack.zarr"
-        build_one_stack(fits_dir, zarr_path, T=5, patch_size=32, stride=16,
-                        plate_scale=0.263)
-
-        z = zarr.open(str(zarr_path), mode="r")
+        z = zarr.open(str(zarr_store), mode="r")
         imgs = z["images"][:]
         timestamps = z["timestamps"][:]
         psf_fwhm = z["psf_fwhm"][:]
@@ -124,16 +117,18 @@ class TestSyntheticPipeline:
         for key in required_keys:
             assert key in case, f"Missing key in .npz: {key}"
 
+        # Verify explicit shapes (not just consistency)
+        T = 5
+        patch_size = 32
+        expected_shape = (T, patch_size, patch_size)
+        assert case["X"].shape == expected_shape, f"X shape {case['X'].shape} != {expected_shape}"
+        assert case["Y"].shape == expected_shape, f"Y shape {case['Y'].shape} != {expected_shape}"
+        assert case["patch_stack"].shape == expected_shape, f"patch_stack shape {case['patch_stack'].shape} != {expected_shape}"
         assert case["X"].shape == case["Y"].shape == case["patch_stack"].shape
 
-    def test_additive_constraint_end_to_end(self, tmp_path):
+    def test_additive_constraint_end_to_end(self, zarr_store):
         """X == patch_stack + Y must hold in the full pipeline output."""
-        fits_dir = _make_fake_fits_stack(tmp_path)
-        zarr_path = tmp_path / "stack.zarr"
-        build_one_stack(fits_dir, zarr_path, T=5, patch_size=32, stride=16,
-                        plate_scale=0.263)
-
-        z = zarr.open(str(zarr_path), mode="r")
+        z = zarr.open(str(zarr_store), mode="r")
         imgs = z["images"][:]
         timestamps = z["timestamps"][:]
         psf_fwhm = z["psf_fwhm"][:]
