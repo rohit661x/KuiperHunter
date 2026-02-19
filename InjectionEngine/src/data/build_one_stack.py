@@ -1,9 +1,16 @@
 """
 build_one_stack.py – CLI + library: load → register → background → PSF → zarr.
 
-Usage::
+After ``pip install -e InjectionEngine/`` (once), run from anywhere::
 
-    python -m src.data.build_one_stack \\
+    kuiper-build-stack \\
+        --stack_dir data/raw/stack01 \\
+        --out       data/processed/stack01.zarr \\
+        --T 5 --patch 64 --stride 32
+
+Or, from within ``InjectionEngine/`` with the package installed::
+
+    python -m data.build_one_stack \\
         --stack_dir data/raw/stack01 \\
         --out       data/processed/stack01.zarr \\
         --T 5 --patch 64 --stride 32

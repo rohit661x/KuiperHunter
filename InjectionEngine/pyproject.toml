@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "injection-engine"
@@ -17,6 +17,10 @@ dependencies = [
 [project.optional-dependencies]
 demo = ["matplotlib>=3.7"]
 dev  = ["pytest>=7"]
+
+[project.scripts]
+kuiper-build-stack = "data.build_one_stack:main"
+kuiper-make-cases  = "data.make_demo_cases:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
