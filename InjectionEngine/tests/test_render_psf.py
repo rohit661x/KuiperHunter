@@ -43,6 +43,14 @@ class TestRenderStamp:
             f"Expected total flux ~{flux}, got {stamp.sum():.4f}"
         )
 
+    def test_flux_conservation_subpixel(self):
+        """Flux must be conserved to within 1.0 count even with sub-pixel shift applied."""
+        flux = 100.0
+        stamp = render_stamp((64, 64), x=32.5, y=32.3, flux=flux, psf_params=self.psf)
+        assert abs(stamp.sum() - flux) < 1.0, (
+            f"Expected total flux ~{flux}, got {stamp.sum():.4f}"
+        )
+
     def test_centroid_shifts_right_when_x_increases(self):
         """Moving x from 28 → 36 must shift the centroid column to the right."""
         stamp_left = render_stamp((64, 64), x=28.0, y=32.0, flux=100.0, psf_params=self.psf)
@@ -54,11 +62,22 @@ class TestRenderStamp:
             f"Expected centroid to shift right, got cx_left={cx_left:.2f}, cx_right={cx_right:.2f}"
         )
 
+    def test_centroid_shifts_down_when_y_increases(self):
+        """Moving y from 24 → 40 must shift the centroid row downward."""
+        stamp_up = render_stamp((64, 64), x=32.0, y=24.0, flux=100.0, psf_params=self.psf)
+        stamp_down = render_stamp((64, 64), x=32.0, y=40.0, flux=100.0, psf_params=self.psf)
+        rows = np.arange(64, dtype=float)
+        cy_up = (stamp_up * rows[:, np.newaxis]).sum() / stamp_up.sum()
+        cy_down = (stamp_down * rows[:, np.newaxis]).sum() / stamp_down.sum()
+        assert cy_down > cy_up, (
+            f"Expected centroid to shift down, got cy_up={cy_up:.2f}, cy_down={cy_down:.2f}"
+        )
+
     def test_out_of_bounds_source_no_error(self):
         """Source fully outside the patch must produce a stamp without error."""
         stamp = render_stamp((64, 64), x=200.0, y=200.0, flux=100.0, psf_params=self.psf)
         assert stamp.shape == (64, 64)
-        assert stamp.sum() >= 0
+        assert np.all(stamp == 0.0), "Fully OOB source must produce an all-zero stamp"
 
 
 class TestRenderStack:
