@@ -31,6 +31,7 @@ def inject(
     seed: int | None = None,
     *,
     target_config: TargetConfig | None = None,
+    sigma_map: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, dict]:
     """
     Inject a synthetic moving source into a patch stack.
@@ -99,8 +100,19 @@ def inject(
         plate_scale=plate_scale,
     )
 
-    # Constant flux per frame (could be made variable in future)
-    fluxes = np.full(n_frames, prior.flux_peak, dtype=np.float64)
+    # Per-frame flux: scale by per-epoch noise if sigma_map is provided.
+    # sigma_map = None  → flux_peak is used as-is (backward compat).
+    # sigma_map provided → flux = snr * sigma_map[t]  (physical amplitude).
+    if sigma_map is not None:
+        sigma_arr = np.asarray(sigma_map, dtype=np.float64)
+        if sigma_arr.shape != (n_frames,):
+            raise ValueError(
+                f"sigma_map must have shape ({n_frames},), got {sigma_arr.shape}."
+            )
+        fluxes = prior.flux_peak * sigma_arr
+    else:
+        fluxes = np.full(n_frames, prior.flux_peak, dtype=np.float64)
+    sigma_calibrated = sigma_map is not None
 
     # ------------------------------------------------------- render & inject
     Y = render_stack(
@@ -145,6 +157,7 @@ def inject(
         "psf": psf_meta,
         # Target config
         "target_strategy": target_config.strategy,
+        "sigma_calibrated": sigma_calibrated,
     }
     if prior.extra:
         meta["prior_extra"] = prior.extra
