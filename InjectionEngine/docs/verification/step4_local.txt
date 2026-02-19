@@ -1,0 +1,50 @@
+=== KuiperHunter Step 4 Verification Gate ===
+Date: 2026-02-19T22:33:14Z
+
+--- Step 1: Run the new smoke tests ---
+COMMAND: python -m pytest InjectionEngine/tests/test_step4_smoke.py -v
+
+============================= test session starts ==============================
+platform darwin -- Python 3.11.8, pytest-7.4.4, pluggy-1.0.0 -- /opt/anaconda3/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/rohitsuryadevara/Documents/KuiperHunter
+plugins: asyncio-0.23.3, cov-4.1.0, anyio-4.10.0, langsmith-0.4.15
+asyncio: mode=Mode.STRICT
+collecting ... collected 3 items
+
+InjectionEngine/tests/test_step4_smoke.py::TestStep4Smoke::test_dataset_returns_correct_shapes PASSED [ 33%]
+InjectionEngine/tests/test_step4_smoke.py::TestStep4Smoke::test_model_forward_shape PASSED [ 66%]
+InjectionEngine/tests/test_step4_smoke.py::TestStep4Smoke::test_model_output_nonnegative PASSED [100%]
+
+============================== 3 passed in 2.78s ===============================
+
+--- Step 2: Run full test suite (regression check) ---
+COMMAND: python -m pytest InjectionEngine/tests/ -q
+
+..........................................ss............................ [ 60%]
+................................................                         [100%]
+118 passed, 2 skipped in 19.57s
+
+--- Step 3: Smoke train ---
+COMMAND: python -m model.train --train_dir InjectionEngine/data/smoke_cases --epochs 2 --batch 4 --out_ckpt InjectionEngine/checkpoints/baseline2d_best.pt
+
+Epoch 1/2  train_loss=0.004434
+Epoch 2/2  train_loss=0.004012
+Saved checkpoint → /Users/rohitsuryadevara/Documents/KuiperHunter/InjectionEngine/checkpoints/baseline2d_best.pt
+Saved log → /Users/rohitsuryadevara/Documents/KuiperHunter/InjectionEngine/checkpoints/baseline2d_best_log.json
+
+--- Step 4: Inference ---
+COMMAND: python -m model.infer --ckpt InjectionEngine/checkpoints/baseline2d_best.pt --case InjectionEngine/data/smoke_cases/case_0000.npz --out_png InjectionEngine/demo/step4_pred_case0000.png
+
+MSE(Y, Y_hat) = 0.003180
+max(Y)        = 3.2663
+max(Y_hat)    = 0.0000
+Saved → /Users/rohitsuryadevara/Documents/KuiperHunter/InjectionEngine/demo/step4_pred_case0000.png
+
+--- Step 5: Artifact assertions ---
+All artifacts confirmed
+
+--- Console script resolution ---
+COMMAND: which kuiper-train && which kuiper-infer
+/opt/anaconda3/bin/kuiper-train
+/opt/anaconda3/bin/kuiper-infer

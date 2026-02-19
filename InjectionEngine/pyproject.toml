@@ -21,6 +21,8 @@ dev  = ["pytest>=7"]
 [project.scripts]
 kuiper-build-stack = "data.build_one_stack:main"
 kuiper-make-cases  = "data.make_demo_cases:main"
+kuiper-train       = "model.train:main"
+kuiper-infer       = "model.infer:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
