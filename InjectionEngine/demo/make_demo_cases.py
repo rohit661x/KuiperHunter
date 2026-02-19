@@ -1,135 +1,141 @@
 """
-make_demo_cases.py – Generate and save a set of reference demo cases to disk.
+make_demo_cases.py – Generate injection cases from a zarr stack.
 
-Run directly::
+Usage::
 
-    python demo/make_demo_cases.py
+    python demo/make_demo_cases.py \\
+        --stack data/processed/stack01.zarr \\
+        --out   demo/cases \\
+        --n_cases 20 --seed 0
 
-Outputs one .npz file per case in demo/cases/.
+Each output .npz contains:
+    patch_stack  : (T, P, P) float32  — background-subtracted patch
+    X            : (T, P, P) float32  — patch + injected signal
+    Y            : (T, P, P) float32  — injected signal only
+    sigma_patch  : (T,)      float32  — per-epoch MAD noise in patch
+    timestamps   : (T,)      float64  — MJD timestamps
+    plate_scale  : float              — arcsec/px
+    psf_fwhm     : (T,)      float32  — per-epoch PSF FWHM (pixels)
+    meta         : dict               — injection provenance (stored as object)
 """
-
 from __future__ import annotations
 
 import sys
 import os
-import numpy as np
+import argparse
+from pathlib import Path
 
-# Allow running from repo root or from demo/
+import numpy as np
+import zarr
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.injector import inject, PSFParams, TargetConfig
+from src.data.patches import extract_patch_grid, patch_sigma
 
 
-# ---------------------------------------------------------------------------
-# Synthetic patch factory
-# ---------------------------------------------------------------------------
+def make_demo_cases(
+    zarr_path: str,
+    out_dir: str,
+    n_cases: int = 20,
+    seed: int = 0,
+    sample_type: str = "tno",
+) -> None:
+    """
+    Load a zarr stack, extract patches, inject signals, save .npz cases.
 
-def make_blank_patch(
-    n_frames: int = 10,
-    n_rows: int = 64,
-    n_cols: int = 64,
-    sky_level: float = 500.0,
-    read_noise: float = 10.0,
-    seed: int = 99,
-) -> np.ndarray:
-    """Return a stack of sky-dominated Gaussian-noise frames."""
+    Parameters
+    ----------
+    zarr_path   : path to zarr store produced by build_one_stack
+    out_dir     : directory to write .npz files
+    n_cases     : number of injection cases to generate
+    seed        : base RNG seed (each case gets seed + i)
+    sample_type : prior type (default 'tno')
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load zarr
+    z = zarr.open(zarr_path, mode="r")
+    imgs        = z["images"][:]         # (T, H, W)
+    timestamps  = z["timestamps"][:]     # (T,) MJD
+    psf_fwhm    = z["psf_fwhm"][:]      # (T,)
+    plate_scale = float(z.attrs["plate_scale"])
+    patch_size  = int(z.attrs.get("patch_size", 64))
+    stride      = int(z.attrs.get("stride", 32))
+
+    # Build the patch pool once
+    pool = list(extract_patch_grid(imgs, patch_size=patch_size, stride=stride))
+    if not pool:
+        raise ValueError(
+            f"No patches of size {patch_size} fit in image shape {imgs.shape[1:]}. "
+            f"Use a smaller --patch or larger images."
+        )
+
     rng = np.random.default_rng(seed)
-    shot = rng.poisson(sky_level, size=(n_frames, n_rows, n_cols)).astype(np.float64)
-    read = rng.normal(0, read_noise, size=(n_frames, n_rows, n_cols))
-    return shot + read
+    n_saved = 0
 
+    for i in range(n_cases):
+        # Sample a random patch from the pool
+        idx = int(rng.integers(len(pool)))
+        patch_stack, row_start, col_start = pool[idx]
 
-def make_timestamps(n_frames: int = 10, cadence_hours: float = 0.5) -> np.ndarray:
-    """Uniformly spaced timestamps starting at 0."""
-    return np.arange(n_frames, dtype=np.float64) * cadence_hours
+        # Per-epoch sigma from this patch
+        sigma = patch_sigma(patch_stack)
 
+        # PSF — use mean FWHM across epochs
+        fwhm_mean = float(psf_fwhm.mean())
+        psf_params = PSFParams(fwhm_pixels=fwhm_mean)
 
-# ---------------------------------------------------------------------------
-# Case definitions
-# ---------------------------------------------------------------------------
+        # Timestamps in hours relative to first epoch
+        t_hours = (timestamps - timestamps[0]) * 24.0
 
-CASES = [
-    dict(
-        name="tno_slow",
-        sample_type="tno",
-        seed=0,
-        psf_fwhm=2.5,
-        plate_scale=0.263,
-    ),
-    dict(
-        name="mba_moderate",
-        sample_type="mba",
-        seed=1,
-        psf_fwhm=2.5,
-        plate_scale=0.263,
-    ),
-    dict(
-        name="nea_fast",
-        sample_type="nea",
-        seed=2,
-        psf_fwhm=3.0,
-        plate_scale=0.263,
-    ),
-    dict(
-        name="static_star",
-        sample_type="static",
-        seed=3,
-        psf_fwhm=2.5,
-        plate_scale=0.263,
-    ),
-    dict(
-        name="tno_center_target",
-        sample_type="tno",
-        seed=4,
-        psf_fwhm=2.5,
-        plate_scale=0.263,
-        target_strategy="center",
-    ),
-]
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-def main():
-    out_dir = os.path.join(os.path.dirname(__file__), "cases")
-    os.makedirs(out_dir, exist_ok=True)
-
-    patch_stack = make_blank_patch()
-    timestamps = make_timestamps()
-
-    for case in CASES:
-        name = case["name"]
-        psf = PSFParams(fwhm_pixels=case["psf_fwhm"])
-        tc = TargetConfig(strategy=case.get("target_strategy", "uniform"))
-
+        # Inject with sigma calibration
         X, Y, meta = inject(
-            patch_stack,
-            timestamps,
-            plate_scale=case["plate_scale"],
-            psf_params=psf,
-            sample_type=case["sample_type"],
-            seed=case["seed"],
-            target_config=tc,
-        )
-
-        out_path = os.path.join(out_dir, f"{name}.npz")
-        np.savez_compressed(
-            out_path,
-            X=X,
-            Y=Y,
             patch_stack=patch_stack,
-            timestamps=timestamps,
-        )
-        print(f"Saved {out_path}")
-        print(
-            f"  flux_peak={meta['flux_peak']:.1f}  "
-            f"motion_ra={meta['motion_ra_arcsec_per_hour']:.3f} '/hr  "
-            f"motion_dec={meta['motion_dec_arcsec_per_hour']:.3f} '/hr"
+            timestamps=t_hours,
+            plate_scale=plate_scale,
+            psf_params=psf_params,
+            sample_type=sample_type,
+            seed=int(seed + i),
+            sigma_map=sigma,
         )
 
-    print(f"\nDone – {len(CASES)} cases written to {out_dir}/")
+        case_name = f"case_{i:04d}"
+        np.savez(
+            out_dir / f"{case_name}.npz",
+            patch_stack=patch_stack.astype(np.float32),
+            X=X.astype(np.float32),
+            Y=Y.astype(np.float32),
+            sigma_patch=sigma,
+            timestamps=timestamps,
+            plate_scale=np.float32(plate_scale),
+            psf_fwhm=psf_fwhm,
+            meta=np.array(meta, dtype=object),
+        )
+        n_saved += 1
+
+    print(f"Saved {n_saved} cases to {out_dir}/")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Generate injection demo cases from a zarr stack."
+    )
+    parser.add_argument("--stack",       required=True, help="Path to zarr store")
+    parser.add_argument("--out",         required=True, help="Output directory")
+    parser.add_argument("--n_cases",     type=int,   default=20)
+    parser.add_argument("--seed",        type=int,   default=0)
+    parser.add_argument("--sample_type", default="tno")
+    args = parser.parse_args()
+
+    make_demo_cases(
+        zarr_path=args.stack,
+        out_dir=args.out,
+        n_cases=args.n_cases,
+        seed=args.seed,
+        sample_type=args.sample_type,
+    )
 
 
 if __name__ == "__main__":
