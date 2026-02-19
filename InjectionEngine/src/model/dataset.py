@@ -37,10 +37,11 @@ class CaseDataset(Dataset):
         return len(self.paths)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        data = np.load(self.paths[idx], allow_pickle=True)
-        Y = data["Y"].astype(np.float32)  # (T, H, W)
-        if self.use_X_if_present and "X" in data:
-            X = data["X"].astype(np.float32)
-        else:
-            X = (data["patch_stack"] + Y).astype(np.float32)
+        """Return (X, Y) float32 tensors of shape (T, H, W) for case at idx."""
+        with np.load(self.paths[idx], allow_pickle=True) as data:
+            Y = data["Y"].astype(np.float32)  # (T, H, W)
+            if self.use_X_if_present and "X" in data:
+                X = data["X"].astype(np.float32)
+            else:
+                X = (data["patch_stack"] + Y).astype(np.float32)
         return torch.from_numpy(X), torch.from_numpy(Y)
