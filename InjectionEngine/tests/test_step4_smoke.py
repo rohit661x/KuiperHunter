@@ -42,3 +42,15 @@ class TestStep4Smoke:
         x = torch.randn(1, 5, 32, 32)  # intentionally negative values
         out = model(x)
         assert (out >= 0).all(), f"Output has {(out < 0).sum()} negative values"
+
+    def test_dataset_reconstructs_x_from_patch_stack(self, tmp_path):
+        """When X is absent, dataset returns patch_stack + Y."""
+        T, H, W = 3, 32, 32
+        patch_stack = np.ones((T, H, W), dtype=np.float32)
+        Y = np.ones((T, H, W), dtype=np.float32) * 2.0
+        np.savez(tmp_path / "case_0000.npz", Y=Y, patch_stack=patch_stack)
+
+        from model.dataset import CaseDataset
+        ds = CaseDataset(tmp_path, use_X_if_present=False)
+        X_t, Y_t = ds[0]
+        np.testing.assert_allclose(X_t.numpy(), patch_stack + Y, rtol=0)

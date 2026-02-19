@@ -15,8 +15,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-demo = ["matplotlib>=3.7"]
-dev  = ["pytest>=7"]
+model = ["torch>=2.0", "matplotlib>=3.7"]
+demo  = ["matplotlib>=3.7"]
+dev   = ["pytest>=7"]
 
 [project.scripts]
 kuiper-build-stack = "data.build_one_stack:main"
