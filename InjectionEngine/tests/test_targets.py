@@ -35,12 +35,14 @@ class TestDrawTargetFixed:
         assert y == 33.7
 
     def test_rng_not_consumed(self):
-        """Fixed strategy should not consume RNG state (result is deterministic)."""
-        rng = np.random.default_rng(99)
-        state_before = rng.bit_generator.state
-        draw_target((64, 64), TargetConfig(strategy="fixed", fixed_x=10.0, fixed_y=10.0), rng)
-        state_after = rng.bit_generator.state
-        assert state_before == state_after
+        """Fixed strategy must not consume RNG state — next draw must be identical to a fresh RNG."""
+        rng_a = np.random.default_rng(99)
+        draw_target((64, 64), TargetConfig(strategy="fixed", fixed_x=10.0, fixed_y=10.0), rng_a)
+        # If fixed strategy consumed rng_a, the next draw will differ from a fresh rng seeded at 99
+        rng_b = np.random.default_rng(99)
+        assert rng_a.integers(0, 1_000_000) == rng_b.integers(0, 1_000_000), (
+            "Fixed strategy must not consume RNG state"
+        )
 
 
 class TestDrawTargetCenter:

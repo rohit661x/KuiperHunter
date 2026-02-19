@@ -148,3 +148,5 @@ class TestAdditiveConstraint:
         np.testing.assert_array_equal(Y1, Y2)
         assert meta1["start_x_px"] == meta2["start_x_px"]
         assert meta1["start_y_px"] == meta2["start_y_px"]
+        assert meta1["motion_ra_arcsec_per_hour"] == meta2["motion_ra_arcsec_per_hour"]
+        assert meta1["flux_peak"] == meta2["flux_peak"]

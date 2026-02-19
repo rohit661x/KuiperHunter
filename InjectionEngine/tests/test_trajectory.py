@@ -1,6 +1,7 @@
 # tests/test_trajectory.py
 """Unit tests for trajectory.py — displacement math and direction conventions."""
 import numpy as np
+import pytest
 from src.injector.trajectory import build_trajectory, is_in_patch, Trajectory
 
 

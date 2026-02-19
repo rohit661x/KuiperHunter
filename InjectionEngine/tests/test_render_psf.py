@@ -39,7 +39,7 @@ class TestRenderStamp:
         """Total flux in stamp must equal the requested flux (source fully inside)."""
         flux = 100.0
         stamp = render_stamp((64, 64), x=32.0, y=32.0, flux=flux, psf_params=self.psf)
-        assert abs(stamp.sum() - flux) < 1.0, (
+        assert abs(stamp.sum() - flux) < 0.01, (
             f"Expected total flux ~{flux}, got {stamp.sum():.4f}"
         )
 

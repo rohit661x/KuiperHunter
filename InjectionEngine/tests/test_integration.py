@@ -158,26 +158,25 @@ class TestSyntheticPipeline:
     reason="Set KBO_REALDATA=1 to run real-data integration tests",
 )
 class TestRealDataPipeline:
-    def _get_real_data_dir(self):
-        path = Path(os.environ.get("KBO_REALDATA_PATH", "kbmod/kbmod/data/small"))
-        if not path.exists():
-            pytest.skip(f"Real data path not found: {path}")
-        return path
+    @pytest.fixture(scope="class")
+    def real_zarr_store(self, tmp_path_factory):
+        """Build a zarr store once from real FITS files, shared across tests in class."""
+        real_data_path = os.environ.get("KBO_REALDATA_PATH", "kbmod/kbmod/data/small")
+        real_dir = Path(real_data_path)
+        if not real_dir.exists():
+            pytest.skip(f"Real data path not found: {real_dir}")
+        base = tmp_path_factory.mktemp("real")
+        zarr_path = base / "real.zarr"
+        build_one_stack(real_dir, zarr_path, T=5, patch_size=32, stride=16)
+        return zarr_path
 
-    def test_real_fits_to_zarr(self, tmp_path):
+    def test_real_fits_to_zarr(self, real_zarr_store):
         """Real FITS → zarr with correct schema."""
-        real_dir = self._get_real_data_dir()
-        zarr_path = tmp_path / "real.zarr"
-        build_one_stack(real_dir, zarr_path, T=5, patch_size=32, stride=16)
-        _open_and_verify_zarr(zarr_path, expected_T=5)
+        _open_and_verify_zarr(real_zarr_store, expected_T=5)
 
-    def test_real_zarr_to_inject(self, tmp_path):
+    def test_real_zarr_to_inject(self, real_zarr_store):
         """Real zarr → extract patch → inject → verify shapes and constraint."""
-        real_dir = self._get_real_data_dir()
-        zarr_path = tmp_path / "real.zarr"
-        build_one_stack(real_dir, zarr_path, T=5, patch_size=32, stride=16)
-
-        z = zarr.open(str(zarr_path), mode="r")
+        z = zarr.open(str(real_zarr_store), mode="r")
         imgs = z["images"][:]
         timestamps = z["timestamps"][:]
         psf_fwhm = z["psf_fwhm"][:]
