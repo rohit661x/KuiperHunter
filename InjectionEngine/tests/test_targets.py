@@ -77,8 +77,8 @@ class TestDrawTargetGrid:
         cell_h = n_rows / 4  # 16
         for _ in range(50):
             x, y = draw_target((n_rows, n_cols), config, rng, grid_index=0)
-            assert 0.0 <= x < cell_w + 1, f"x={x} outside cell 0 col range"
-            assert 0.0 <= y < cell_h + 1, f"y={y} outside cell 0 row range"
+            assert 0.0 <= x < cell_w, f"x={x} outside cell 0 col range"
+            assert 0.0 <= y < cell_h, f"y={y} outside cell 0 row range"
 
     def test_grid_index_wraps(self):
         """grid_index wraps modulo grid_n^2, so index 16 == index 0 for grid_n=4."""
