@@ -1,8 +1,6 @@
 # tests/test_trajectory.py
 """Unit tests for trajectory.py — displacement math and direction conventions."""
 import numpy as np
-import pytest
-
 from src.injector.trajectory import build_trajectory, is_in_patch, Trajectory
 
 
@@ -20,7 +18,7 @@ class TestBuildTrajectory:
         timestamps = np.array([0.0, 1.0, 2.0])
         traj = build_trajectory(timestamps, start_x=16.0, start_y=16.0,
                                 motion_ra=2.0, motion_dec=0.0, plate_scale=1.0)
-        assert traj.xs[0] != traj.xs[-1], "xs must change with RA motion"
+        np.testing.assert_allclose(traj.xs, [16.0, 18.0, 20.0], atol=1e-10)
         np.testing.assert_allclose(traj.ys, 16.0, atol=1e-10)
 
     def test_pure_dec_shifts_y_only(self):
@@ -76,10 +74,11 @@ class TestIsInPatch:
 
     def test_exits_patch(self):
         """Source moving east at 10 px/hr must exit a 64-wide patch by frame 2."""
-        # xs = 60 + 10*dt: frame0=60 (in), frame1=70 (in with +0.5 margin), frame2=80 (out)
+        # xs = 60 + 10*dt: frame0=60 (in), frame1=70 (outside, 70 >= 64.5), frame2=80 (out)
         timestamps = np.array([0.0, 1.0, 2.0])
         traj = build_trajectory(timestamps, start_x=60.0, start_y=32.0,
                                 motion_ra=10.0, motion_dec=0.0, plate_scale=1.0)
         mask = is_in_patch(traj, patch_shape=(64, 64))
         assert mask[0], "frame 0 (x=60) should be inside"
+        assert not mask[1], "frame 1 (x=70) should be outside (70 >= 64.5)"
         assert not mask[2], "frame 2 (x=80) should be outside"
