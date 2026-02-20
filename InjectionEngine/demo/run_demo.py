@@ -79,7 +79,7 @@ def section1_injection() -> None:
 
     T = X.shape[0]
     t = T // 2
-    sigma = float(data.get("sigma_patch", np.nan))
+    sigma = float(np.atleast_1d(data.get("sigma_patch", np.nan)).mean())
     flux_peak = float(Y.max())
 
     print(f"  Frames: {T}  |  Patch size: {X.shape[1]}x{X.shape[2]}")
@@ -125,7 +125,7 @@ def _infer_case(model: UNet3DMinimal, case_path: Path) -> tuple:
     else:
         X = (data["patch_stack"] + Y).astype(np.float32)
 
-    sigma = float(data.get("sigma_patch", np.nan))
+    sigma = float(np.atleast_1d(data.get("sigma_patch", np.nan)).mean())
 
     # Per-case normalize (same as training)
     mu  = X.mean()
