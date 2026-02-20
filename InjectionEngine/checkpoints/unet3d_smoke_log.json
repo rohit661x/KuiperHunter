@@ -1,0 +1,7 @@
+{
+  "model_type": "unet3d",
+  "epochs": 3,
+  "final_train_loss": 0.003978961266111583,
+  "final_val_loss": null,
+  "best_epoch": 3
+}
