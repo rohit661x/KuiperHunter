@@ -1,0 +1,5 @@
+[console_scripts]
+kuiper-build-stack = data.build_one_stack:main
+kuiper-infer = model.infer:main
+kuiper-make-cases = data.make_demo_cases:main
+kuiper-train = model.train:main

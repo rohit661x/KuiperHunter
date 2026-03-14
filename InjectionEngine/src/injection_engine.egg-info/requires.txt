@@ -1,0 +1,10 @@
+numpy>=1.24
+astropy>=5.0
+zarr<3.0,>=2.16
+scipy>=1.9
+
+[demo]
+matplotlib>=3.7
+
+[dev]
+pytest>=7
